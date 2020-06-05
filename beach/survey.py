@@ -16,10 +16,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import IncrementalPCA
 from IPython.display import clear_output
 
+from matplotlib.colors import ListedColormap
+from mpl_toolkits.basemap import Basemap
+import utm
+from tqdm.notebook import tqdm
 
 class survey:
 
-    def __init__(self, filepath, parameters, outputpath):
+    def __init__(self, filepath = None, parameters = None, outputpath = None):
         
         self.filepath = filepath
         
@@ -35,8 +39,10 @@ class survey:
                 raise Exception("filepath does not exist")
         elif type(filepath) == list:
             pass
+        elif filepath == None:
+            pass
         else:
-            raise Exception("filepath must be a string")
+            raise Exception("filepath must be a string or None")
             
         
             
@@ -73,6 +79,8 @@ class survey:
         self.features = None
         self.histpath = None
         self.featpath = None
+        
+        self.create_dir()
 
 ##########################################################################################
        
@@ -111,9 +119,15 @@ class survey:
 
     # @jit(parallel=True)
     def downsample(self):
+        # **Concession: This function for downsampling does not lowpass filter the data before
+        # downsampling. For this reason, there may be artifacts such as moire patterns in the downsampled data.
+        
         
         if path.isfile(self.histpath + 'hist.npz'):
             raise Exception("This survey has already been downsampled!")
+            
+        if self.filepath == None:
+            raise Exception("filepath must be a string or a list of strings in order to use method 'downsample'")
             
         inFile = laspy.file.File(self.filepath, mode='r')
         num_points = inFile.__len__()
@@ -136,7 +150,7 @@ class survey:
         I_gen = (I for I in inFile.intensity)
         label_gen = (label for label in inFile.raw_classification)
 
-        for i,x, y, z, I, label in zip(range(num_points),x_gen, y_gen, z_gen, I_gen, label_gen):
+        for i,x, y, z, I, label in tqdm(zip(range(num_points),x_gen, y_gen, z_gen, I_gen, label_gen)):
             if ~(label == 7) & ~(label == 18):  # ignore noise values
                 xi = np.digitize(x, xbin)
                 yi = np.digitize(y, ybin)
@@ -292,35 +306,73 @@ class survey:
         else:
             raise Exception("attribute must be of type 'string'")
         
+        coordmin = utm.to_latlon(hist['y'].min(),hist['x'].min(),11,northern = True)
+        coordmean = utm.to_latlon(hist['y'].mean(),hist['x'].mean(),11,northern = True)
+        coordmax = utm.to_latlon(hist['y'].max(),hist['x'].max(),11,northern = True)
+        lat,lon = utm.to_latlon(hist['y'].transpose(),hist['x'].transpose(),11,northern = True)
         
-        fig0=plt.figure(figsize=[8,5])
+        cMap = ListedColormap(['goldenrod','cornflowerblue'])
+        cMap.set_over('1')
+        cMap.set_under('2')
+        
+        # 1. Draw the map background
+        fig0, ax0 = plt.subplots(1,1, figsize = [8,20])
+
+        m = Basemap(projection='nsper', resolution='f', 
+                    llcrnrlon=coordmin[1], llcrnrlat=coordmin[0],
+                    urcrnrlon=coordmax[1],urcrnrlat=coordmax[0],
+                    lat_0=coordmean[0], lon_0=coordmean[1],
+                    width=1.0E3, height=2.4E3, epsg = 4269, ax = ax0)
+        
+        m.arcgisimage(service='World_Imagery', verbose= False)
+        
+        
         
         
         if attribute.lower() == 'height':
             
-            ax0 = fig0.add_subplot(111)
-            c0 = plt.pcolor(hist['x'],hist['y'],hist['z'], **kwargs)
+            c0 = m.pcolormesh(lon,lat,hist['z'].transpose(),latlon=True,cmap='gist_rainbow', **kwargs)
             plt.title(self.parameters["survey_name"])
-            cbar = fig0.colorbar(c0,ax=ax0)
-            cbar.ax.set_ylabel('Height (m)', rotation=-90, va="bottom")
-            
+            cbaxes = fig0.add_axes()
+            cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
+            cbar.ax.set_xlabel('Height (m)',labelpad = 30, rotation=0)
         elif attribute.lower() == 'intensity':
             
-            ax0 = fig0.add_subplot(111)
-            c0 = plt.pcolor(hist['x'],hist['y'],hist['I'], **kwargs)
+            
+            c0 = m.pcolormesh(lon,lat,hist['I'].transpose(),latlon=True,cmap='gist_rainbow', **kwargs)
             plt.title(self.parameters["survey_name"])
-            cbar = fig0.colorbar(c0,ax=ax0)
-            cbar.ax.set_ylabel('Return Intensity', rotation=-90, va="bottom")
+            cbaxes = fig0.add_axes()
+            cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
+            cbar.ax.set_xlabel('Return Intensity',labelpad = 30, rotation=0)
             
         elif attribute.lower() == 'classification':
             if path.isfile(self.histpath + 'labels.npy'):
-                # plot with predicted labels
-                pass
+                
+                labels = np.load(self.histpath + 'labels.npy')
+                c0 = m.pcolormesh(lon,lat,labels.transpose(),latlon=True,cmap=cMap)
+                plt.title(self.parameters["survey_name"])
+                cbaxes = fig0.add_axes()
+                cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
+                cbar.ax.set_xlabel('Automatic Labels',labelpad = 30, rotation=0)
+                cbar.ax.invert_xaxis()
+                cbar.ax.get_xaxis().set_ticks([])
+                cbar.ax.text(1.25, 0.25, 'land', ha='center', va='center')
+                cbar.ax.text(1.75, 0.25, 'water', ha='center', va='center')
             else:
                 
-                ax0 = fig0.add_subplot(111)
-                c0 = plt.pcolor(hist['x'],hist['y'],hist['labels'], **kwargs)
+                c0 = m.pcolormesh(lon,lat,hist['labels'].transpose(),latlon=True,cmap=cMap)
                 plt.title(self.parameters["survey_name"])
-                cbar = fig0.colorbar(c0,ax=ax0)
-                cbar.ax.set_ylabel('raw classification', rotation=-90, va="bottom")
+                cbaxes = fig0.add_axes()
+                cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
+                cbar.ax.set_xlabel('Manual Labels',labelpad = 30, rotation=0)
+                cbar.ax.invert_xaxis()
+                cbar.ax.get_xaxis().set_ticks([])
+                cbar.ax.text(1.25, 0.25, 'land', ha='center', va='center')
+                cbar.ax.text(1.75, 0.25, 'water', ha='center', va='center')
+                
+        parallels = np.arange(lat.min(),lat.max(),0.005)
+        
+        m.drawparallels(parallels,labels=[False,True,True,False],linewidth = 2)
+        meridians = np.arange(lon.min(),lon.max(),0.005)
+        m.drawmeridians(meridians,labels=[True,False,False,True],linewidth = 2)
         

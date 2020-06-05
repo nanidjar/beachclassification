@@ -19,6 +19,12 @@ import pickle
 import numpy as np
 from scipy.stats import mode
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
+import utm
+
+from scipy.interpolate import griddata
+from matplotlib.colors import ListedColormap
 
 class autolabel:
 
@@ -172,10 +178,15 @@ class autolabel:
     def autolabel(self):
         
         if self.mode != 'label':
-            raise Exception("mode must be 'label' in order to use function 'autolabel'")
+            raise Exception("Mode must be 'label' in order to use function 'autolabel'")
         else:
             pass
-            
+        
+        if type(self.survey_path) == list:
+            raise Exception("Survey Path must be a string with the path to a single survey to automatically label")
+        else:
+            pass
+        
         params = self.parameters
         
         clf_name = params["name"]
@@ -198,17 +209,74 @@ class autolabel:
             for i,ind in enumerate(indi):
                 point = dirty_labels[ind]
                 nlab, _ = mode(point)
-                new_labels[i] = nlab[0]
+                labels[i] = nlab[0]
         else:
             labels = dirty_labels
         
-        self.labels = labels
+        self.labels = [features[:,0], features[:,1], labels]
         
         
+    def visual_check(self, **kwargs):
         
+        # filt = self.labels[2] == 1
+        x, y, labels = self.labels
+        # x = x[filt]
+        # y = y[filt]
+        # labels = labels[filt]
+        coordmin = utm.to_latlon(y.min(), x.min(),11,northern = True)
+        coordmean = utm.to_latlon(y.mean(), x.mean(),11,northern = True)
+        coordmax = utm.to_latlon(y.max(), x.max(),11,northern = True)
+        lat,lon = utm.to_latlon(y, x,11,northern = True)
+        
+        cMap = ListedColormap(['goldenrod','cornflowerblue'])
+        #cMap.set_over('1')
+        #cMap.set_under('2')
+        
+        fig0, ax0 = plt.subplots(1,1, figsize = [8,20])
+
+        m = Basemap(projection='nsper', resolution='f', 
+                    llcrnrlon=coordmin[1], llcrnrlat=coordmin[0],
+                    urcrnrlon=coordmax[1],urcrnrlat=coordmax[0],
+                    lat_0=coordmean[0], lon_0=coordmean[1],
+                    width=1.0E3, height=2.4E3, epsg = 4269, ax = ax0)
+        # m.shadedrelief()
+        m.arcgisimage(service='World_Imagery', verbose= False)
+        
+        x,y = m(lon,lat)
+        c0 = m.scatter(x,y,1,labels,latlon=True,cmap=cMap, **kwargs)
+        
+        plt.title('Applied Labels')
+        # cbaxes = fig0.add_axes()
+        cbar = fig0.colorbar(c0,ax=ax0 ,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
+        cbar.ax.set_xlabel('Label',labelpad = 30, rotation=0)
+        cbar.ax.invert_xaxis()
+        cbar.ax.get_xaxis().set_ticks([])
+        cbar.ax.text(1.25, 0.25, 'land', ha='center', va='center')
+        cbar.ax.text(1.75, 0.25, 'water', ha='center', va='center')
+        
+        parallels = np.arange(lat.min(),lat.max(),0.005)
+        # labels = [left,right,top,bottom]
+        m.drawparallels(parallels,labels=[False,True,True,False],linewidth = 2)
+        meridians = np.arange(lon.min(),lon.max(),0.005)
+        m.drawmeridians(meridians,labels=[True,False,False,True],linewidth = 2)
         
     def apply(self):
         
-       # TO DO: 'apply' will create a 2D mesh the same size and resolution as the survey histogram, filled with labels corresponding to the nearest neighbor predicted label given at spacing 'step_size' given in self.labels. The indices of existing data in hist will provide a mask for this label mesh. pixels without data will be given a label value of nan. This final label mesh will be saved in the same directory as 'hist.npz' of the survey with the name 'labels.npy'
-    
-        pass
+        histpath = self.survey_path + '/resolution' + str(self.parameters["resolution"]) + '/1_histogram/'
+        
+        hist = np.load(histpath + 'hist.npz')
+        
+        X = np.vstack((self.labels[0],self.labels[1])).transpose()
+        
+        labels = griddata(X, self.labels[2], (hist['x'],hist['y']), method = 'nearest')
+        
+        label_mask = ~np.isnan(hist['labels'])
+        masked = labels * label_mask.astype(int)
+        masked[masked ==0] = np.nan
+        
+        np.save(histpath + 'labels.npy', masked)
+        
+        
+        
+        
+        
