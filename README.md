@@ -12,20 +12,20 @@ Quickstart:
 				to
 							c.NotebookApp.notebook_dir = 'D:/Your/Path'
 				This should be a folder where you will store your scripts to use this package.
-	6. Open the program 'Anaconda Prompt'. Search for it in the Windows search bar.
-	7. In this terminal, type 
+  3. Open the program 'Anaconda Prompt'. Search for it in the Windows search bar.
+	4. In this terminal, type 
 							pip install beach_classification
-	8. After it has finished installing, type 
+	5. After it has finished installing, type 
 							jupyter notebook
 		 into the terminal. 
-	9. On the jupyter notebooks homepage, in the upper right corner, click 'New' and then 'Python 3'.
-	10. Into the first cell, type 
+	6. On the jupyter notebooks homepage, in the upper right corner, click 'New' and then 'Python 3'.
+	7. Into the first cell, type 
 							import beach_classification as beach
-	11. In a new cell, type
+	8. In a new cell, type
 							help(beach.survey)
 			and then
 							help(beach.autolabel)
 			to learn about the classes, methods, and workflow for this project. 
-	12. As you experiment with this package, if you get any errors or odd output, 
+	9. As you experiment with this package, if you get any errors or odd output, 
 			please take a screenshot of your script and the error message, and send to me (Niv).
 	
