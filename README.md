@@ -14,17 +14,18 @@ Quickstart:
 				This should be a folder where you will store your scripts to use this package.
   5. Open the program 'Anaconda Prompt'. Search for it in the Windows search bar.
   6. In this terminal, type 
-							*pip install beach_classification*
+							*>pip install git+https://github.com/nanidjar/beachclassification.git#egg=beachclassification*
   7. After it has finished installing, type 
 							*jupyter notebook*
 		 into the terminal. 
   8. On the jupyter notebooks homepage, in the upper right corner, click 'New' and then 'Python 3'.
   9. Into the first cell, type 
-							*import beach_classification as beach*
+							*import beachclassification.survey as survey*
+							*import beachclassification.autolabel as autolabel*
   10. In a new cell, type
-							*help(beach.survey)*
+							*help(survey)*
 			and then
-							*help(beach.autolabel)*
+							*help(autolabel)*
 			to learn about the classes, methods, and workflow for this project. 
   11. As you experiment with this package, if you get any errors or odd output, 
 			please take a screenshot of your script and the error message, and send to me (Niv).
