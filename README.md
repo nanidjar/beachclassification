@@ -1,7 +1,7 @@
 # beachclassification
 Automate the lidar point cloud classification process. Currently can only distinguish between water and subaerial beach.
 
-## Quickstart:
+## Quickstart
 
   1. Create two folders. One will store processed surveys, and the other will store trained classifiers and their metadata.
   2. Download the Anaconda distribution of Python 3. ( https://www.anaconda.com/ )
