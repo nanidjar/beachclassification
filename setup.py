@@ -3,8 +3,8 @@ from setuptools import setup, find_packages
 
 setup(
     
-    name='beach_classification',
-    url='https://github.com/nanidjar/beach_classification',
+    name='beachclassification',
+    url='https://github.com/nanidjar/beachclassification',
     author='Niv Anidjar',
     author_email='nanidjar@ucsd.edu',
     
