@@ -74,9 +74,18 @@ class autolabel:
         name: str
             The name of the classifier folder. (default is 'NAME_THIS_CLASSIFIER')
         params: *optional*
-            resolution
+            resolution: float
+                The resolution of the survey to use for training or labeling.
+                Needed for locating the right survey data.(default 0.5)
             classifier: str, 'gaussian process', 'mlp', or 'random forest'
                 The type of classification algorithm to use. (default Gaussian Process)
+            knn_clean: bool
+                Whether or not to clean the automatically labelled survey using a nearest
+                neighbor lookup. This will ensure that there are no mislabeled 'pockets' of
+                water or unclassified data. (default False)
+            k: int
+                The number of neareset neighbors to use for knn cleanup.
+                Ignored if knn_clean is False. (default 3)
             
         """
         
@@ -177,10 +186,10 @@ class autolabel:
             parameters = {
                 # Random Forest, MLP, or Gaussian Process.
                 "classifier": 'Gaussian Process',
-                "resolution": 1,
+                "resolution": 0.5,
                 'clf_params': None,
 
-                "knn_clean": [False],
+                "knn_clean": False,
                 "k": 3
             }
 
