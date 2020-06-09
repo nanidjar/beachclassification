@@ -10,6 +10,7 @@ import pickle
 import os
 from os import path
 import matplotlib.pyplot as plt
+import yaml
 
 from sklearn import preprocessing
 from sklearn.preprocessing import StandardScaler
@@ -22,41 +23,58 @@ import utm
 from tqdm.notebook import tqdm
 
 class survey:
+    """Example usage:
+        
+        output_dir = 'C:/Users/user1/Desktop/Beach'
+        survey_path = 'C:/path/to/survey.las'
+        
+        test_survey = survey(output_dir,survey_path)
+        test_survey.resample()
+        test_survey.texture()
+        
+        %matplotlib notebook
+        
+        test_survey.plot('intensity')
+        
+        test_survey.plot('height')
+        
+        test_survey.plot('classification')
+        """
 
-    def __init__(self, filepath = None, parameters = None, outputpath = None):
+    def __init__(self, outputpath, filepath,  **params):
+        """Inputs:
         
-        self.filepath = filepath
+        outputpath : str 
+            The path to a folder where you will store all the surveys processed with a
+            specified parameter set.
         
-        if type(filepath) == str:
-            if  filepath.endswith('.las'):
-                pass
-            else:
-                raise Exception("filepath must be a path to a file ending with .las")
-
-            if path.isfile(filepath):
-                pass
-            else:
-                raise Exception("filepath does not exist")
-        elif type(filepath) == list:
-            pass
-        elif filepath == None:
-            pass
-        else:
-            raise Exception("filepath must be a string or None")
+        filepath : str
+            The path to a .las file
+                OR
+            The unique name of a survey folder in 'outputpath'. 
             
-        
-            
-        
-
-        self.parameters = parameters
-        
-        if type(parameters) == dict:
-            pass
-        else:
-            raise Exception("parameters must be of type 'dict'")
-            
-            
-            
+        params: *optional*
+            resolution: float
+                The desired resampling resolution in meters. (default is 0.5)
+            block_size: float
+                Half the side length in meters of a square window centered around a sample point
+                for deriving texture attributes. (default is 3)
+            step_size: float
+                Distance in meters between each sample point around which to derive texture
+                attributes (default is 2)
+            gabor_orient: int
+                The number of gabor wavelet orientations with which to filter samples
+                to derive texure attributes. (default is 4)
+            gabor_freq: tuple
+                A tuple of spatial frequencies in cycles per meter, specifying the gabor wavelets 
+                to be used for deriving texture attributes. Keep the nyquist frequency in mind 
+                (half the sample rate). (default is (0.125,0.25))
+            gabor_bw: tuple
+                A tuple of bandwidths, specifying the gabor wavelets to be used for deriving 
+                texture attributes. (default is (1,3))
+            texture_attr: str, 'height' or 'intensity'
+                which point attribute to use for deriving texture attributes. (default is 'height')
+        """
         
         self.outputpath = outputpath
         
@@ -75,20 +93,106 @@ class survey:
             pass
         else:
             raise Exception("outputpath does not exist")
+            
+            
+            
+            
+            
+        self.filepath = filepath
+        
+        if type(filepath) == str:
+            if path.isfile(filepath):
+                if  filepath.endswith('.las'):
+                    filename = path.basename(filepath)
+                    name = filename.split('.',1)[0]
+                    self.surveyname = name
+                else:
+                    raise Exception("filepath must be a path to a file ending with .las")
+            elif path.isdir(self.outputpath + filepath):
+                self.surveyname = filepath
+            else:
+                raise Exception("The survey cannot be found!")
+        elif filepath == None:
+            pass
+        else:
+            raise Exception("filepath must be a string")
+            
+        
+            
+        self.params = params
+        self._config_file()
+        
+        
+        if type(self.parameters) == dict:
+            pass
+        else:
+            raise Exception("parameters must be of type 'dict'")
 
         self.features = None
         self.histpath = None
         self.featpath = None
         
-        self.create_dir()
+        self._create_dir()
+        
 
 ##########################################################################################
-       
-    def create_dir(self):
+    def _config_file(self):
+        """
+        Adds a configuration file 'config.yaml' to the output directory given by the user.
+        """
+        
+        config_path = self.outputpath + 'config.yaml'
+        
+        if path.isfile(config_path):
+            with open(config_path, 'r') as f:
+                parameters = yaml.load(f)
+                self.parameters = parameters
+            if len(self.params) > 0:
+                raise Exception('Cannot change parameters in existing configuration file. This ensures consistency among processed surveys in a folder. Create a new folder if you would like to experiment with new parameters.')
+        else:
+            parameters = {
 
+                "resolution" : 0.5,
+                "gabor_orient" : 4,
+                "gabor_bw" : (1,3),
+                "gabor_freq" : (0.125, 0.25),
+
+                "block_size" : 3,
+                "step_size" : 2,
+                "texture_attr" : 'height' # or 'intensity'
+            }   
+
+            parameters.update(self.params)
+            
+            for fr in parameters["gabor_freq"]:
+                if fr > (0.5 / parameters["resolution"]):
+                    raise Exception("Gabor wavelet frequencies must be smaller than the nyquist frequency (half the sampling rate)")
+                else:
+                    continue
+                                    
+                                     
+            self.parameters = parameters
+            
+            with open(config_path, 'w') as f:
+                yaml.dump(parameters,f)
+            
+###############################################################################################
+                    
+    def _create_dir(self):
+        """
+        Creates the following directory tree.
+        
+        survey
+        |--raw
+        |__resolution[value]
+             |--1_histogram
+             |__2_rawtexturefeatures
+        
+        """
+        
         binsize = self.parameters["resolution"]
         folders_main = self.outputpath
-        survey_name = self.parameters["survey_name"]
+        survey_name = self.surveyname
 
         raw = 'raw'
         resolution = 'resolution'
@@ -118,16 +222,16 @@ class survey:
 ##################################################################################
 
     # @jit(parallel=True)
-    def downsample(self):
-        # **Concession: This function for downsampling does not lowpass filter the data before
-        # downsampling. For this reason, there may be artifacts such as moire patterns in the downsampled data.
+    def resample(self):
+        """Uniformly resamples the survey to the resolution in the configuration file. 
         
+        Concession: This function for resampling does not lowpass filter the data before
+        resampling. For this reason, there may be artifacts such as moire patterns in the 
+        resampled data.
+        """
         
         if path.isfile(self.histpath + 'hist.npz'):
             raise Exception("This survey has already been downsampled!")
-            
-        if self.filepath == None:
-            raise Exception("filepath must be a string or a list of strings in order to use method 'downsample'")
             
         inFile = laspy.file.File(self.filepath, mode='r')
         num_points = inFile.__len__()
@@ -149,8 +253,10 @@ class survey:
         z_gen = (z*scale[2] + offset[2] for z in inFile.Z)
         I_gen = (I for I in inFile.intensity)
         label_gen = (label for label in inFile.raw_classification)
+        
+        loop_length = np.sum(inFile.header.point_return_count)
 
-        for i,x, y, z, I, label in tqdm(zip(range(num_points),x_gen, y_gen, z_gen, I_gen, label_gen)):
+        for i,x, y, z, I, label in tqdm(zip(range(num_points),x_gen, y_gen, z_gen, I_gen, label_gen),total = loop_length):
             if ~(label == 7) & ~(label == 18):  # ignore noise values
                 xi = np.digitize(x, xbin)
                 yi = np.digitize(y, ybin)
@@ -177,7 +283,7 @@ class survey:
         labels[unclass] = 1
         labels[water] = 2
 
-        histpath = self.outputpath + self.parameters["survey_name"] + '/resolution' + str(
+        histpath = self.outputpath + self.surveyname + '/resolution' + str(
             self.parameters["resolution"]) + '/1_histogram/' + 'hist.npz'
         np.savez(histpath, x=x, y=y, count=count, z=z, I=I, labels=labels)
 
@@ -185,17 +291,24 @@ class survey:
         print('Downsampling: 100 %',flush = True)
 
 ########################################################################################
-  
+     
     def texture(self):
+        """Derives texture attributes in a window around a sample of points in the survey.
+        """
         
         if path.isfile(self.featpath + 'features.npy'):
             raise Exception("Texture has already been derived for this survey!")
+            
+        if path.isfile(self.histpath + 'hist.npz'):
+            pass
+        else:
+            raise Exception("Texture can only be derived AFTER downsampling using survey.downsample()")
         ##########################################################
 
         num_orientations = self.parameters["gabor_orient"]
         bandwidths = self.parameters["gabor_bw"]
-        frequencies = self.parameters["gabor_freq"]
-
+        frequencies = self.parameters["gabor_freq"]/self.parameters["resolution"]
+        
         kernels = []
 
         # loop through kernel orientations
@@ -217,7 +330,7 @@ class survey:
 
         ###########################################################
 
-        histspath = self.outputpath + self.parameters["survey_name"] + '/resolution' + str(
+        histspath = self.outputpath + self.surveyname + '/resolution' + str(
             self.parameters["resolution"]) + '/1_histogram/' + 'hist' + '.npz'
 
         hist = np.load(histspath)
@@ -232,10 +345,10 @@ class survey:
 
         ###############################################################
 
-        block_size = self.parameters["block_size"]
-        step_size = self.parameters["step_size"]
+        block_size = int(self.parameters["block_size"]/self.parameters["resolution"])
+        step_size = int(self.parameters["step_size"]/self.parameters["resolution"])
 
-        hb = int(block_size/2)
+        hb = block_size
 
         ##################################################################
 
@@ -253,7 +366,7 @@ class survey:
 
         ###################################################################
         i = 0
-        for xi in range(hb, attr.shape[0]-hb, step_size):
+        for xi in tqdm(range(hb, attr.shape[0]-hb, step_size)):
             for yi in range(hb, attr.shape[1]-hb, step_size):
 
                 if np.isnan(attr[xi, yi]):
@@ -271,9 +384,9 @@ class survey:
                         for j in range(5, len(kernels) + 5):
                             features[i, j] = feature
 
-                clear_output(wait=True)
-                print('Deriving texture attributes: ', round(
-                    (i/num_samples) * 100, 2), '%', flush=True)
+                #clear_output(wait=True)
+                #print('Deriving texture attributes: ', round(
+                #    (i/num_samples) * 100, 2), '%', flush=True)
                 i += 1
 
         ########################################################################
@@ -283,7 +396,7 @@ class survey:
 
         self.features = cf
 
-        txtrpath = self.outputpath + self.parameters["survey_name"] + '/resolution' + str(
+        txtrpath = self.outputpath + self.surveyname + '/resolution' + str(
             self.parameters["resolution"]) + '/2_rawtexturefeatures/' + 'features' + '.npy'
 
         np.save(txtrpath, cf)
@@ -293,6 +406,21 @@ class survey:
         
         
     def plot(self,attribute, **kwargs):
+        """Plots the resampled survey over a map.
+        
+        The following attributes can be plotted 'height', 'intensity', 'classification'.
+        
+        If plotting 'classification', this method will plot either the raw classification 
+        given in the .las file, or if it has been labelled by a trained classifier using 
+        the autolabel class, this method will plot these automatic labels. 
+        
+        Inputs:
+            attribute: str, 'height', 'intensity', 'classification'
+                attribute to plot.
+            kwargs: *optional*
+                Any optional arguments to matplotlib.pyplot.pcolormesh can be passed here to
+                customize the plot. for example, 'vmin' and 'vmax' will set the colorbar limits. 
+        """
         
         if path.isfile(self.histpath + 'hist.npz'):
             pass
@@ -332,15 +460,15 @@ class survey:
         if attribute.lower() == 'height':
             
             c0 = m.pcolormesh(lon,lat,hist['z'].transpose(),latlon=True,cmap='gist_rainbow', **kwargs)
-            plt.title(self.parameters["survey_name"])
+            plt.title(self.surveyname)
             cbaxes = fig0.add_axes()
             cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
-            cbar.ax.set_xlabel('Height (m)',labelpad = 30, rotation=0)
+            cbar.ax.set_xlabel('NAVD 88 Height (m)',labelpad = 30, rotation=0)
         elif attribute.lower() == 'intensity':
             
             
             c0 = m.pcolormesh(lon,lat,hist['I'].transpose(),latlon=True,cmap='gist_rainbow', **kwargs)
-            plt.title(self.parameters["survey_name"])
+            plt.title(self.surveyname)
             cbaxes = fig0.add_axes()
             cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
             cbar.ax.set_xlabel('Return Intensity',labelpad = 30, rotation=0)
@@ -349,8 +477,8 @@ class survey:
             if path.isfile(self.histpath + 'labels.npy'):
                 
                 labels = np.load(self.histpath + 'labels.npy')
-                c0 = m.pcolormesh(lon,lat,labels.transpose(),latlon=True,cmap=cMap)
-                plt.title(self.parameters["survey_name"])
+                c0 = m.pcolormesh(lon,lat,labels.transpose(),latlon=True,cmap=cMap, **kwargs)
+                plt.title(self.surveyname)
                 cbaxes = fig0.add_axes()
                 cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
                 cbar.ax.set_xlabel('Automatic Labels',labelpad = 30, rotation=0)
@@ -361,7 +489,7 @@ class survey:
             else:
                 
                 c0 = m.pcolormesh(lon,lat,hist['labels'].transpose(),latlon=True,cmap=cMap)
-                plt.title(self.parameters["survey_name"])
+                plt.title(self.surveyname)
                 cbaxes = fig0.add_axes()
                 cbar = fig0.colorbar(c0,ax=cbaxes,cmap = cMap, orientation = 'horizontal', pad = 0.03, shrink = 0.5)
                 cbar.ax.set_xlabel('Manual Labels',labelpad = 30, rotation=0)
