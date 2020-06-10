@@ -307,7 +307,9 @@ class survey:
 
         num_orientations = self.parameters["gabor_orient"]
         bandwidths = self.parameters["gabor_bw"]
-        frequencies = self.parameters["gabor_freq"]/self.parameters["resolution"]
+        freqs = self.parameters["gabor_freq"]
+        res = self.parameters["resolution"]
+        frequencies = tuple(elem/res for elem in freqs)
         
         kernels = []
 
@@ -446,7 +448,7 @@ class survey:
         # 1. Draw the map background
         fig0, ax0 = plt.subplots(1,1, figsize = [8,20])
 
-        m = Basemap(projection='nsper', resolution='f', 
+        m = Basemap(projection='nsper', resolution='l', 
                     llcrnrlon=coordmin[1], llcrnrlat=coordmin[0],
                     urcrnrlon=coordmax[1],urcrnrlat=coordmax[0],
                     lat_0=coordmean[0], lon_0=coordmean[1],

@@ -410,7 +410,7 @@ class autolabel:
         
         fig0, ax0 = plt.subplots(1,1, figsize = [8,20])
 
-        m = Basemap(projection='nsper', resolution='f', 
+        m = Basemap(projection='nsper', resolution='l', 
                     llcrnrlon=coordmin[1], llcrnrlat=coordmin[0],
                     urcrnrlon=coordmax[1],urcrnrlat=coordmax[0],
                     lat_0=coordmean[0], lon_0=coordmean[1],
