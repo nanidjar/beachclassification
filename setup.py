@@ -8,7 +8,7 @@ setup(
     author='Niv Anidjar',
     author_email='nanidjar@ucsd.edu',
     
-    install_requires=['numpy', 'sklearn', 'scipy', 'laspy', 'skimage', 'utm',
+    install_requires=['numpy', 'sklearn', 'scipy', 'laspy', 'scikit-image', 'utm',
                       'pyyaml','numba','tqdm','matplotlib'],
     packages=find_packages(),
     version='0.0.1',
