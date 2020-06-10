@@ -16,6 +16,6 @@ setup(
     license='GPL-3.0',
     description='process and label beach LIDAR surveys',
     
-    long_description=(pathlib.Path(__file__).parent / "README.md"),
+    long_description=(pathlib.Path(__file__).parent / "README.md")
     # long_description_content_type = "text/markdown"
 )
