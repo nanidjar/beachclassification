@@ -9,13 +9,12 @@ setup(
     author_email='nanidjar@ucsd.edu',
     
     install_requires=['numpy', 'sklearn', 'scipy', 'laspy', 'skimage', 'utm',
-                      'pyyaml','numba','tqdm'],
+                      'pyyaml','numba','tqdm','matplotlib'],
     packages=find_packages(),
     version='0.0.1',
     
     license='GPL-3.0',
     description='process and label beach LIDAR surveys',
     
-    long_description=(pathlib.Path(__file__).parent / "README.md")
-    # long_description_content_type = "text/markdown"
+    long_description=open("README.md").read()
 )
