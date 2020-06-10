@@ -3,12 +3,12 @@ from setuptools import setup, find_packages
 
 setup(
     
-    name='beach_classification',
-    url='https://github.com/nanidjar/beach_classification',
+    name='beachclassification',
+    url='https://github.com/nanidjar/beachclassification',
     author='Niv Anidjar',
     author_email='nanidjar@ucsd.edu',
     
-    install_requires=['numpy', 'sklearn', 'os', 'pickle', 'scipy', 'laspy', 'skimage', 'utm',
+    install_requires=['numpy', 'sklearn', 'scipy', 'laspy', 'skimage', 'utm',
                       'pyyaml','numba','tqdm'],
     packages=find_packages(),
     version='0.0.1',
