@@ -309,7 +309,7 @@ class survey:
         bandwidths = self.parameters["gabor_bw"]
         freqs = self.parameters["gabor_freq"]
         res = self.parameters["resolution"]
-        frequencies = tuple(elem/res for elem in freqs)
+        frequencies = tuple(elem*res for elem in freqs)
         
         kernels = []
 
