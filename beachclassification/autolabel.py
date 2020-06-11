@@ -405,8 +405,6 @@ class autolabel:
         lat,lon = utm.to_latlon(y, x,11,northern = True)
         
         cMap = ListedColormap(['goldenrod','cornflowerblue'])
-        #cMap.set_over('1')
-        #cMap.set_under('2')
         
         fig0, ax0 = plt.subplots(1,1, figsize = [8,20])
 
