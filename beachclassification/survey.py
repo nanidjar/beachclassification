@@ -442,8 +442,6 @@ class survey:
         lat,lon = utm.to_latlon(hist['y'].transpose(),hist['x'].transpose(),11,northern = True)
         
         cMap = ListedColormap(['goldenrod','cornflowerblue'])
-        cMap.set_over('1')
-        cMap.set_under('2')
         
         # 1. Draw the map background
         fig0, ax0 = plt.subplots(1,1, figsize = [8,20])
